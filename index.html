@@ -154,9 +154,11 @@
     const sheetsContainer = document.getElementById('sheetsContainer');
     const statusEl = document.getElementById('status');
     const YEAR_PATTERN = /^\d{4}$/;
+    const VIDEO_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/;
     const MIN_VALID_YEAR = 1900;
     const QR_SIZE_DEFAULT = 120;
     const CARDS_PER_SHEET = 8;
+    const VIDEO_ID_FALLBACK = 'N/D';
 
     function getQrSize() {
       return Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--qr-size')) || QR_SIZE_DEFAULT;
@@ -172,19 +174,25 @@
     }
 
     function extractVideoId(link) {
+      const getValidVideoId = (value) => {
+        const candidate = String(value ?? '').trim();
+        return VIDEO_ID_PATTERN.test(candidate) ? candidate : '';
+      };
+
       try {
         const parsed = new URL(link);
         const vParam = parsed.searchParams.get('v');
-        if (vParam) {
-          return vParam.trim();
+        const validVParam = getValidVideoId(vParam);
+        if (validVParam) {
+          return validVParam;
         }
 
         const pathParts = parsed.pathname.split('/').filter(Boolean);
-        if (parsed.hostname.includes('youtu.be') && pathParts[0]) {
-          return pathParts[0].trim();
+        if (parsed.hostname.includes('youtu.be')) {
+          return getValidVideoId(pathParts[0]);
         }
-        if ((pathParts[0] === 'shorts' || pathParts[0] === 'embed') && pathParts[1]) {
-          return pathParts[1].trim();
+        if (pathParts[0] === 'shorts' || pathParts[0] === 'embed') {
+          return getValidVideoId(pathParts[1]);
         }
       } catch {
         return '';
@@ -295,7 +303,7 @@
 
       const frontFooter = document.createElement('p');
       frontFooter.className = 'w-full mt-auto text-[11px] font-mono text-slate-500 break-all';
-      frontFooter.textContent = `ID: ${song.videoId || 'N/D'}`;
+      frontFooter.textContent = `ID: ${song.videoId || VIDEO_ID_FALLBACK}`;
       card.appendChild(frontFooter);
 
       const qrSize = getQrSize();
@@ -346,7 +354,7 @@
       year.textContent = `Ano: ${String(song.ano)}`;
       const videoIdText = document.createElement('p');
       videoIdText.className = 'text-xs font-mono text-slate-700 mt-1 break-all';
-      videoIdText.textContent = `ID: ${song.videoId || 'N/D'}`;
+      videoIdText.textContent = `ID: ${song.videoId || VIDEO_ID_FALLBACK}`;
       footer.appendChild(year);
       footer.appendChild(videoIdText);
 
