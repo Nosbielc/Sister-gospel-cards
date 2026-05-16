@@ -131,7 +131,7 @@
     const sheetsContainer = document.getElementById('sheetsContainer');
     const statusEl = document.getElementById('status');
     const YEAR_PATTERN = /^\d{4}$/;
-    const QR_SIZE = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue('--qr-size'), 10) || 120;
+    const QR_SIZE = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--qr-size')) || 120;
 
     const exampleSongs = [
       { nome: 'Raridade', artista: 'Anderson Freire', ano: 2013, link: 'https://music.youtube.com/watch?v=m7bW7LzE6p8' },
@@ -252,15 +252,12 @@
       card.appendChild(textCol);
       card.appendChild(qrCol);
 
-      requestAnimationFrame(() => {
-        new QRCode(qrTarget, {
-          text: song.link,
-          width: QR_SIZE,
-          height: QR_SIZE,
-          correctLevel: QRCode.CorrectLevel.H
-        });
+      new QRCode(qrTarget, {
+        text: song.link,
+        width: QR_SIZE,
+        height: QR_SIZE,
+        correctLevel: QRCode.CorrectLevel.H
       });
-
       return card;
     }
 
