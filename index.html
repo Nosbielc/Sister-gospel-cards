@@ -131,6 +131,8 @@
     const sheetsContainer = document.getElementById('sheetsContainer');
     const statusEl = document.getElementById('status');
     const YEAR_PATTERN = /^\d{4}$/;
+    const MIN_VALID_YEAR = 1900;
+    const CARDS_PER_SHEET = 8;
 
     function getQrSize() {
       return Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--qr-size')) || 120;
@@ -156,7 +158,7 @@
       return {
         nome: String(raw.nome ?? raw.titulo ?? raw.title ?? '').trim(),
         artista: String(raw.artista ?? raw.cantor ?? raw.ministerio ?? raw.artist ?? '').trim(),
-        ano: Number.isInteger(parsedYear) && parsedYear >= 1900 && parsedYear <= maxValidYear ? parsedYear : NaN,
+        ano: Number.isInteger(parsedYear) && parsedYear >= MIN_VALID_YEAR && parsedYear <= maxValidYear ? parsedYear : NaN,
         link: String(raw.link ?? raw.url ?? raw.youtube ?? '').trim()
       };
     }
@@ -184,7 +186,11 @@
       } else {
         const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
         parsed = lines.map((line) => {
-          const [nome, artista, ano, link] = line.split(';').map((piece) => piece.trim());
+          const pieces = line.split(';');
+          if (pieces.length !== 4) {
+            throw new Error('Formato por linha inválido. Use: nome;artista;ano;link');
+          }
+          const [nome, artista, ano, link] = pieces.map((piece) => piece.trim());
           if (!nome || !artista || !ano || !link) {
             throw new Error('Formato por linha inválido. Use: nome;artista;ano;link');
           }
@@ -260,18 +266,23 @@
       card.appendChild(qrCol);
 
       const qrSize = getQrSize();
-      new QRCode(qrTarget, {
-        text: song.link,
-        width: qrSize,
-        height: qrSize,
-        correctLevel: QRCode.CorrectLevel.H
-      });
+      try {
+        new QRCode(qrTarget, {
+          text: song.link,
+          width: qrSize,
+          height: qrSize,
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      } catch {
+        qrTarget.textContent = 'QR indisponível';
+        qrTarget.className = 'text-[10px] text-slate-400 text-center';
+      }
       return card;
     }
 
     function renderSheets(songs) {
       sheetsContainer.innerHTML = '';
-      const pages = chunk(songs, 8);
+      const pages = chunk(songs, CARDS_PER_SHEET);
 
       pages.forEach((pageSongs, pageIndex) => {
         const sheet = document.createElement('section');
@@ -280,7 +291,7 @@
         const grid = document.createElement('div');
         grid.className = 'cards-grid';
 
-        for (let i = 0; i < 8; i += 1) {
+        for (let i = 0; i < CARDS_PER_SHEET; i += 1) {
           const song = pageSongs[i];
           if (song) {
             grid.appendChild(createCard(song));
