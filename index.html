@@ -188,7 +188,8 @@
         }
 
         const pathParts = parsed.pathname.split('/').filter(Boolean);
-        if (parsed.hostname.includes('youtu.be')) {
+        const hostname = parsed.hostname.toLowerCase();
+        if (hostname === 'youtu.be' || hostname.endsWith('.youtu.be')) {
           return getValidVideoId(pathParts[0]);
         }
         if (pathParts[0] === 'shorts' || pathParts[0] === 'embed') {
