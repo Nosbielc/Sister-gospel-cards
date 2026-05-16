@@ -130,7 +130,8 @@
     const printBtn = document.getElementById('printBtn');
     const sheetsContainer = document.getElementById('sheetsContainer');
     const statusEl = document.getElementById('status');
-    const QR_SIZE = 120;
+    const YEAR_PATTERN = /^\d{4}$/;
+    const QR_SIZE = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue('--qr-size'), 10) || 120;
 
     const exampleSongs = [
       { nome: 'Raridade', artista: 'Anderson Freire', ano: 2013, link: 'https://music.youtube.com/watch?v=m7bW7LzE6p8' },
@@ -147,7 +148,7 @@
 
     function normalizeSong(raw) {
       const yearValue = String(raw.ano ?? raw.year ?? '').trim();
-      const parsedYear = /^\d{4}$/.test(yearValue) ? Number.parseInt(yearValue, 10) : NaN;
+      const parsedYear = YEAR_PATTERN.test(yearValue) ? Number.parseInt(yearValue, 10) : NaN;
       const maxValidYear = new Date().getFullYear();
       return {
         nome: String(raw.nome ?? raw.titulo ?? raw.title ?? '').trim(),
@@ -281,7 +282,10 @@
           } else {
             const placeholder = document.createElement('div');
             placeholder.className = 'card';
-            placeholder.innerHTML = '<div class="text-xs text-slate-300 self-center">Espaço vazio</div>';
+            const placeholderText = document.createElement('div');
+            placeholderText.className = 'text-xs text-slate-300 self-center';
+            placeholderText.textContent = 'Espaço vazio';
+            placeholder.appendChild(placeholderText);
             grid.appendChild(placeholder);
           }
         }
