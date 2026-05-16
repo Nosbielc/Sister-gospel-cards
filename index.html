@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerador de Cards Hitster Gospel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <style>
+    :root {
+      --page-width: 210mm;
+      --page-height: 297mm;
+      --sheet-padding: 8mm;
+      --gap: 4mm;
+    }
+
+    .sheet {
+      width: var(--page-width);
+      min-height: var(--page-height);
+      padding: var(--sheet-padding);
+      background: #fff;
+      margin: 0 auto 16px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.15);
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      gap: var(--gap);
+      height: calc(var(--page-height) - (var(--sheet-padding) * 2));
+    }
+
+    .card {
+      border: 1.5px dotted #4b5563;
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      background: #fff;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .card h3 {
+      line-height: 1.2;
+      word-break: break-word;
+    }
+
+    .qr-box {
+      width: 128px;
+      min-width: 128px;
+      min-height: 128px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      padding: 4px;
+    }
+
+    .qr-box canvas,
+    .qr-box img {
+      width: 120px !important;
+      height: 120px !important;
+      image-rendering: pixelated;
+    }
+
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+    @media print {
+      html,
+      body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      .sheet {
+        box-shadow: none;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-900">
+  <main class="max-w-6xl mx-auto p-4 md:p-6">
+    <section class="no-print bg-white rounded-2xl shadow p-4 md:p-6 space-y-4">
+      <h1 class="text-2xl font-bold">Gerador de Cards Físicos — Hitster Gospel</h1>
+      <p class="text-sm text-slate-600">
+        Cole uma lista em JSON ou em linhas no formato: <strong>nome;artista;ano;link</strong>
+      </p>
+
+      <label for="inputData" class="block text-sm font-semibold">Lista de músicas</label>
+      <textarea
+        id="inputData"
+        class="w-full min-h-[220px] p-3 rounded-xl border border-slate-300 font-mono text-sm"
+        placeholder='[{"nome":"Consagração","artista":"Aline Barros","ano":1994,"link":"https://music.youtube.com/watch?v=X3_bZc6XbYg"}]'
+      ></textarea>
+
+      <div class="flex flex-wrap gap-2">
+        <button id="loadExampleBtn" class="px-4 py-2 rounded-xl bg-slate-700 text-white font-semibold">Carregar Lista de Exemplo</button>
+        <button id="generateBtn" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold">Gerar Folha de Cards</button>
+        <button id="printBtn" class="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold">Imprimir / Salvar PDF</button>
+      </div>
+
+      <p id="status" class="text-sm text-slate-600"></p>
+    </section>
+
+    <section id="sheetsContainer" class="mt-6 space-y-4"></section>
+  </main>
+
+  <script>
+    const inputData = document.getElementById('inputData');
+    const loadExampleBtn = document.getElementById('loadExampleBtn');
+    const generateBtn = document.getElementById('generateBtn');
+    const printBtn = document.getElementById('printBtn');
+    const sheetsContainer = document.getElementById('sheetsContainer');
+    const statusEl = document.getElementById('status');
+
+    const exampleSongs = [
+      { nome: 'Raridade', artista: 'Anderson Freire', ano: 2013, link: 'https://music.youtube.com/watch?v=m7bW7LzE6p8' },
+      { nome: 'Deus de Promessas', artista: 'Davi Sacer', ano: 2005, link: 'https://music.youtube.com/watch?v=IYQj_5v4xJ4' },
+      { nome: 'Consagração', artista: 'Aline Barros', ano: 1994, link: 'https://music.youtube.com/watch?v=X3_bZc6XbYg' },
+      { nome: 'Ninguém Explica Deus', artista: 'Preto no Branco', ano: 2015, link: 'https://music.youtube.com/watch?v=9R8i8f9D7tE' },
+      { nome: 'Lugar Secreto', artista: 'Gabriela Rocha', ano: 2017, link: 'https://music.youtube.com/watch?v=sYw4W8f2Q6M' }
+    ];
+
+    function setStatus(message, isError = false) {
+      statusEl.textContent = message;
+      statusEl.className = `text-sm ${isError ? 'text-red-600' : 'text-slate-600'}`;
+    }
+
+    function normalizeSong(raw) {
+      return {
+        nome: String(raw.nome ?? raw.titulo ?? raw.title ?? '').trim(),
+        artista: String(raw.artista ?? raw.cantor ?? raw.ministerio ?? raw.artist ?? '').trim(),
+        ano: Number(raw.ano ?? raw.year ?? ''),
+        link: String(raw.link ?? raw.url ?? raw.youtube ?? '').trim()
+      };
+    }
+
+    function parseSongs(text) {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        throw new Error('A lista está vazia.');
+      }
+
+      let parsed = [];
+
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        let json;
+        try {
+          json = JSON.parse(trimmed);
+        } catch {
+          throw new Error('JSON inválido. Verifique a estrutura e tente novamente.');
+        }
+        parsed = Array.isArray(json) ? json : [json];
+      } else {
+        const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        parsed = lines.map((line) => {
+          const [nome, artista, ano, link] = line.split(';').map((piece) => piece?.trim());
+          if (!nome || !artista || !ano || !link) {
+            throw new Error('Formato por linha inválido. Use: nome;artista;ano;link');
+          }
+          return { nome, artista, ano, link };
+        });
+      }
+
+      const normalized = parsed.map(normalizeSong).filter((song) => song.nome && song.artista && Number.isFinite(song.ano) && song.link);
+
+      if (!normalized.length) {
+        throw new Error('Nenhuma música válida encontrada.');
+      }
+
+      return normalized;
+    }
+
+    function chunk(array, size) {
+      const blocks = [];
+      for (let i = 0; i < array.length; i += size) {
+        blocks.push(array.slice(i, i + size));
+      }
+      return blocks;
+    }
+
+    function createCard(song, index) {
+      const card = document.createElement('article');
+      card.className = 'card';
+
+      const textCol = document.createElement('div');
+      textCol.className = 'flex flex-col justify-between min-w-0';
+
+      const header = document.createElement('div');
+      const title = document.createElement('h3');
+      title.className = 'text-base font-bold';
+      title.textContent = song.nome;
+      const artist = document.createElement('p');
+      artist.className = 'text-sm text-slate-700 mt-1';
+      artist.textContent = song.artista;
+      header.appendChild(title);
+      header.appendChild(artist);
+
+      const footer = document.createElement('div');
+      footer.className = 'mt-2';
+      const yearLabel = document.createElement('p');
+      yearLabel.className = 'text-xs uppercase tracking-wide text-slate-500';
+      yearLabel.textContent = 'Ano de lançamento';
+      const year = document.createElement('p');
+      year.className = 'text-2xl font-black text-emerald-700 leading-none';
+      year.textContent = String(song.ano);
+      const badge = document.createElement('p');
+      badge.className = 'text-xs mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700 border border-red-200';
+      const badgeIcon = document.createElement('span');
+      badgeIcon.setAttribute('aria-hidden', 'true');
+      badgeIcon.textContent = '▶';
+      badge.appendChild(badgeIcon);
+      badge.append('YouTube Music');
+      footer.appendChild(yearLabel);
+      footer.appendChild(year);
+      footer.appendChild(badge);
+
+      textCol.appendChild(header);
+      textCol.appendChild(footer);
+
+      const qrCol = document.createElement('div');
+      qrCol.className = 'flex items-center';
+      const qrBox = document.createElement('div');
+      qrBox.className = 'qr-box';
+      const qrTarget = document.createElement('div');
+      qrTarget.id = `qr-${index}`;
+      qrBox.appendChild(qrTarget);
+      qrCol.appendChild(qrBox);
+
+      card.appendChild(textCol);
+      card.appendChild(qrCol);
+
+      requestAnimationFrame(() => {
+        new QRCode(qrTarget, {
+          text: song.link,
+          width: 480,
+          height: 480,
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      });
+
+      return card;
+    }
+
+    function renderSheets(songs) {
+      sheetsContainer.innerHTML = '';
+      const pages = chunk(songs, 8);
+
+      pages.forEach((pageSongs, pageIndex) => {
+        const sheet = document.createElement('section');
+        sheet.className = 'sheet';
+
+        const grid = document.createElement('div');
+        grid.className = 'cards-grid';
+
+        for (let i = 0; i < 8; i += 1) {
+          const song = pageSongs[i];
+          if (song) {
+            grid.appendChild(createCard(song, (pageIndex * 8) + i));
+          } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'card';
+            placeholder.innerHTML = '<div class="text-xs text-slate-300 self-center">Espaço vazio</div>';
+            grid.appendChild(placeholder);
+          }
+        }
+
+        sheet.appendChild(grid);
+        sheetsContainer.appendChild(sheet);
+      });
+    }
+
+    loadExampleBtn.addEventListener('click', () => {
+      inputData.value = JSON.stringify(exampleSongs, null, 2);
+      setStatus('Lista de exemplo carregada.');
+    });
+
+    generateBtn.addEventListener('click', () => {
+      try {
+        const songs = parseSongs(inputData.value);
+        renderSheets(songs);
+        setStatus(`${songs.length} card(s) gerado(s) com sucesso.`);
+      } catch (error) {
+        setStatus(error.message || 'Erro ao gerar cards.', true);
+      }
+    });
+
+    printBtn.addEventListener('click', () => {
+      window.print();
+    });
+
+    inputData.value = JSON.stringify(exampleSongs, null, 2);
+    try {
+      renderSheets(parseSongs(inputData.value));
+      setStatus('Pré-visualização inicial carregada.');
+    } catch {
+      setStatus('Não foi possível gerar a pré-visualização inicial.', true);
+    }
+  </script>
+</body>
+</html>
