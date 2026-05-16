@@ -171,6 +171,27 @@
       }
     }
 
+    function extractVideoId(link) {
+      try {
+        const parsed = new URL(link);
+        const vParam = parsed.searchParams.get('v');
+        if (vParam) {
+          return vParam.trim();
+        }
+
+        const pathParts = parsed.pathname.split('/').filter(Boolean);
+        if (parsed.hostname.includes('youtu.be') && pathParts[0]) {
+          return pathParts[0].trim();
+        }
+        if ((pathParts[0] === 'shorts' || pathParts[0] === 'embed') && pathParts[1]) {
+          return pathParts[1].trim();
+        }
+      } catch {
+        return '';
+      }
+      return '';
+    }
+
     const exampleSongs = [
       { nome: 'Raridade', artista: 'Anderson Freire', ano: 2013, link: 'https://music.youtube.com/watch?v=m7bW7LzE6p8' },
       { nome: 'Deus de Promessas', artista: 'Davi Sacer', ano: 2005, link: 'https://music.youtube.com/watch?v=IYQj_5v4xJ4' },
@@ -188,11 +209,13 @@
       const yearValue = String(raw.ano ?? raw.year ?? '').trim();
       const parsedYear = YEAR_PATTERN.test(yearValue) ? Number.parseInt(yearValue, 10) : NaN;
       const maxValidYear = new Date().getFullYear();
+      const link = String(raw.link ?? raw.url ?? raw.youtube ?? '').trim();
       return {
         nome: String(raw.nome ?? raw.titulo ?? raw.title ?? '').trim(),
         artista: String(raw.artista ?? raw.cantor ?? raw.ministerio ?? raw.artist ?? '').trim(),
         ano: Number.isInteger(parsedYear) && parsedYear >= MIN_VALID_YEAR && parsedYear <= maxValidYear ? parsedYear : NaN,
-        link: String(raw.link ?? raw.url ?? raw.youtube ?? '').trim()
+        link,
+        videoId: extractVideoId(link)
       };
     }
 
@@ -270,6 +293,11 @@
       card.appendChild(qrCol);
       card.appendChild(badge);
 
+      const footer = document.createElement('p');
+      footer.className = 'w-full mt-auto text-[11px] font-mono text-slate-500 break-all';
+      footer.textContent = `ID: ${song.videoId || 'N/D'}`;
+      card.appendChild(footer);
+
       const qrSize = getQrSize();
       try {
         new QRCode(qrTarget, {
@@ -313,14 +341,14 @@
 
       const footer = document.createElement('div');
       footer.className = 'w-full';
-      const yearLabel = document.createElement('p');
-      yearLabel.className = 'text-xs uppercase tracking-wide text-slate-500';
-      yearLabel.textContent = 'Ano';
       const year = document.createElement('p');
-      year.className = 'text-2xl font-black text-emerald-700 leading-none mt-1';
-      year.textContent = String(song.ano);
-      footer.appendChild(yearLabel);
+      year.className = 'text-sm font-semibold text-emerald-700';
+      year.textContent = `Ano: ${String(song.ano)}`;
+      const videoId = document.createElement('p');
+      videoId.className = 'text-xs font-mono text-slate-700 mt-1 break-all';
+      videoId.textContent = `ID: ${song.videoId || 'N/D'}`;
       footer.appendChild(year);
+      footer.appendChild(videoId);
 
       card.appendChild(header);
       card.appendChild(content);
